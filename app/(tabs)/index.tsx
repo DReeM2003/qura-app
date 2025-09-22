@@ -29,7 +29,7 @@ export default function Dashboard() {
   const topSize = 350;
   const ROW_HEIGHT = 65; // <— adjust this to change container height
 
-  const StepsRing = ({ steps = 8300, goal = 10000 }) => {
+  const StepsRing = ({ steps = 5000, goal = 10000 }) => {
     const size = topSize;
     const stroke = 14;
     const radius = (size - stroke) / 2;
@@ -72,7 +72,7 @@ export default function Dashboard() {
       {/* Fixed steps square */}
       <View style={{ paddingHorizontal: H }}>
         <View style={[styles.topCard, { width: topSize, height: topSize }]}>
-          <StepsRing steps={5460} goal={10000} />
+          <StepsRing steps={7123} goal={10000} />
         </View>
         <View style={[styles.divider, { width: topSize }]} />
       </View>
