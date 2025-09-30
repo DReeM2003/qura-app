@@ -4,8 +4,8 @@ import { StatusBar } from 'expo-status-bar';
 import 'react-native-reanimated';
 
 import { useColorScheme } from '@/hooks/use-color-scheme';
-import { ProfileProvider } from './context/ProfileContext';
 import { BLEProvider } from './context/BLEContext';
+import { ProfileProvider } from './context/ProfileContext';
 
 export const unstable_settings = {
   anchor: '(tabs)',

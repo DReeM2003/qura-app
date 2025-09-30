@@ -1,3 +1,4 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { createContext, ReactNode, useCallback, useContext, useEffect, useState } from 'react';
 
 export type Profile = {
@@ -18,11 +19,13 @@ const DEFAULT_PROFILE: Profile = {
   weight: 185,
 };
 
+const STORAGE_KEY = 'user_profile_v1';
+
 interface ProfileContextValue {
   profile: Profile;
   loading: boolean;
-  updateProfile: (partial: Partial<Profile>) => Promise<void> | void;
-  resetProfile: () => void;
+  updateProfile: (partial: Partial<Profile>) => Promise<void>;
+  resetProfile: () => Promise<void>;
 }
 
 const ProfileContext = createContext<ProfileContextValue | undefined>(undefined);
@@ -31,18 +34,42 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
   const [profile, setProfile] = useState<Profile>(DEFAULT_PROFILE);
   const [loading, setLoading] = useState(true);
 
-  // Simulate async initial load (could be from API later)
+  // Load saved profile
   useEffect(() => {
-    const t = setTimeout(() => setLoading(false), 50);
-    return () => clearTimeout(t);
+    (async () => {
+      try {
+        const data = await AsyncStorage.getItem(STORAGE_KEY);
+        if (data) {
+          const parsed = JSON.parse(data);
+          setProfile(prev => ({ ...prev, ...parsed }));
+        }
+      } catch (e) {
+        console.warn('Failed to load profile', e);
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, []);
+
+  const persist = useCallback(async (next: Profile) => {
+    try {
+      await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+    } catch (e) {
+      console.warn('Failed to save profile', e);
+    }
   }, []);
 
   const updateProfile = useCallback(async (partial: Partial<Profile>) => {
-    setProfile(curr => ({ ...curr, ...partial }));
-  }, []);
+    setProfile(curr => {
+      const next = { ...curr, ...partial };
+      persist(next);
+      return next;
+    });
+  }, [persist]);
 
-  const resetProfile = useCallback(() => {
+  const resetProfile = useCallback(async () => {
     setProfile(DEFAULT_PROFILE);
+    try { await AsyncStorage.removeItem(STORAGE_KEY); } catch {}
   }, []);
 
   return (
