@@ -2,13 +2,13 @@
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import React, { useMemo, useState } from "react";
 import {
-    Dimensions,
-    FlatList,
-    Image,
-    Pressable,
-    StyleSheet,
-    Text,
-    View,
+  Dimensions,
+  FlatList,
+  Image,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -21,14 +21,24 @@ const ICON = {
 };
 
 const MONTHS = [
-  "January","February","March","April","May","June",
-  "July","August","September","October","November","December"
+  "January",
+  "February",
+  "March",
+  "April",
+  "May",
+  "June",
+  "July",
+  "August",
+  "September",
+  "October",
+  "November",
+  "December",
 ];
-const WEEKDAYS = ["S","M","T","W","T","F","S"];
+const WEEKDAYS = ["S", "M", "T", "W", "T", "F", "S"];
 
 export default function records() {
   const { width, height } = Dimensions.get("window");
-  const H = 16;                 // horizontal page padding
+  const H = 16; // horizontal page padding
   const tabBarHeight = useBottomTabBarHeight();
   const { bottom } = useSafeAreaInsets();
   const bottomClearance = tabBarHeight + bottom + 25;
@@ -62,28 +72,69 @@ export default function records() {
       const last = cells[cells.length - 1].date;
       const next = new Date(last);
       next.setDate(last.getDate() + 1);
-      cells.push({ key: `n-${next.toDateString()}`, date: next, inMonth: false });
+      cells.push({
+        key: `n-${next.toDateString()}`,
+        date: next,
+        inMonth: false,
+      });
     }
     return cells;
   }, [viewYear, viewMonth]);
 
   const goPrevMonth = () => {
-    if (viewMonth === 0) { setViewMonth(11); setViewYear(y => y - 1); }
-    else setViewMonth(m => m - 1);
+    if (viewMonth === 0) {
+      setViewMonth(11);
+      setViewYear((y) => y - 1);
+    } else setViewMonth((m) => m - 1);
   };
   const goNextMonth = () => {
-    if (viewMonth === 11) { setViewMonth(0); setViewYear(y => y + 1); }
-    else setViewMonth(m => m + 1);
+    if (viewMonth === 11) {
+      setViewMonth(0);
+      setViewYear((y) => y + 1);
+    } else setViewMonth((m) => m + 1);
   };
 
-  // --- records data (replace with your live data)
-  const records = [
-    { key: "steps", label: "Steps", value: "8,540", icon: ICON.steps },
-    { key: "hr",    label: "Heart Rate", value: "72 bpm", icon: ICON.heart },
-    { key: "resp",  label: "Respiratory Rate", value: "15 br/m", icon: ICON.resp },
-    { key: "spo2",  label: "Blood Oxygen", value: "97%", icon: ICON.spo2 },
-    { key: "temp",  label: "Body Temp.", value: "97.6°F", icon: ICON.temp },
-  ];
+  // --- Dynamic daily records
+  const generateDailyMetrics = (date: Date) => {
+    const seed = date.getDate(); // gives a unique pattern for each day
+    return [
+      {
+        key: "steps",
+        label: "Steps",
+        value: `${7500 + seed * 100} steps`,
+        icon: ICON.steps,
+      },
+      {
+        key: "hr",
+        label: "Heart Rate",
+        value: `${65 + (seed % 10)} bpm`,
+        icon: ICON.heart,
+      },
+      {
+        key: "resp",
+        label: "Respiratory Rate",
+        value: `${14 + (seed % 5)} br/m`,
+        icon: ICON.resp,
+      },
+      {
+        key: "spo2",
+        label: "Blood Oxygen",
+        value: `${96 + (seed % 3)}%`,
+        icon: ICON.spo2,
+      },
+      {
+        key: "temp",
+        label: "Body Temp.",
+        value: `${97 + (seed % 2)}.${seed % 9}°F`,
+        icon: ICON.temp,
+      },
+    ];
+  };
+
+  const records = useMemo(
+    () => generateDailyMetrics(selected || today),
+    [selected]
+  );
 
   // layout sizes
   const calendarHeight = Math.max(280, Math.floor(height * 0.45)); // “top half”
@@ -93,7 +144,12 @@ export default function records() {
   return (
     <View style={styles.screen}>
       {/* Top: Calendar */}
-      <View style={[styles.calendarWrap, { height: calendarHeight, paddingHorizontal: H }]}>
+      <View
+        style={[
+          styles.calendarWrap,
+          { height: calendarHeight, paddingHorizontal: H },
+        ]}
+      >
         {/* Header with month/year and chevrons */}
         <View style={styles.calHeader}>
           <Pressable onPress={goPrevMonth} hitSlop={10}>
@@ -109,8 +165,10 @@ export default function records() {
 
         {/* Weekday labels */}
         <View style={styles.weekHeader}>
-          {WEEKDAYS.map(d => (
-            <Text key={d} style={styles.weekLabel}>{d}</Text>
+          {WEEKDAYS.map((d) => (
+            <Text key={d} style={styles.weekLabel}>
+              {d}
+            </Text>
           ))}
         </View>
 
@@ -154,7 +212,12 @@ export default function records() {
           rowGap: 12,
         }}
         renderItem={({ item }) => (
-          <View style={[styles.rowCard, { width: contentWidth, height: ROW_HEIGHT }]}>
+          <View
+            style={[
+              styles.rowCard,
+              { width: contentWidth, height: ROW_HEIGHT },
+            ]}
+          >
             <View style={styles.rowLeft}>
               <Image source={item.icon} style={styles.rowIcon} />
               <Text style={styles.recordTitle}>{item.label}</Text>
