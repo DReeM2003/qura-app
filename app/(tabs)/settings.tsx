@@ -8,7 +8,6 @@ import { useBLEContext } from "../context/BLEContext"; // adjust path to where y
 
 const SettingsScreen: React.FC = () => {
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
-  const [darkMode, setDarkMode] = useState(false);
   const [bluetoothEnabled, setBluetoothEnabled] = useState(true);
   const router = useRouter();
  
@@ -20,7 +19,6 @@ const SettingsScreen: React.FC = () => {
   const handleSupport = () =>
     Alert.alert("Support", "This feature is not implemented yet.");
   const handleNotificationsToggle = () => setNotificationsEnabled(!notificationsEnabled);
-  const handleDarkModeToggle = () => setDarkMode(!darkMode);
   const handleBluetoothToggle = () =>
     setBluetoothEnabled(!bluetoothEnabled);
 
@@ -129,24 +127,6 @@ const SettingsScreen: React.FC = () => {
           />
         </View>
       </View>
-
-      // Appearance Section 
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Appearance</Text>
-        <View style={styles.row}>
-          <Ionicons name="moon-outline" size={20} color="#e342bb" /> 
-          <Text style={styles.optionText}>Dark Mode</Text>
-          <Switch
-            value={darkMode}
-            onValueChange={handleDarkModeToggle}
-            trackColor={{ false: "#ccc", true: "#e342bb" }} 
-            thumbColor={darkMode ? "#e342bb" : "#f4f3f4"} // Pink when enabled
-          />
-        </View>
-      </View>
-      //probably going to delete this part^^
-
-     
 
       // Support Section 
       <View style={styles.section}>
