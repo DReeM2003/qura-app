@@ -33,6 +33,9 @@ const SettingsScreen: React.FC = () => {
     connectedDevice,
     lastMessage,
     writeLine,
+    simulationMode,
+    setSimulationMode,
+    clearDevices
   } = useBLEContext();
 
   return (
@@ -43,17 +46,46 @@ const SettingsScreen: React.FC = () => {
         </View>
 
         <View style={styles.sectionContainer}>
-          <Text style={styles.sectionHeader}>Bluetooth</Text>
+          <Text style={styles.sectionHeader}>Device Connection</Text>
 
-            <TouchableOpacity
-              style={[styles.scanButton, isScanning && { opacity: 0.6 }]}
-              onPress={() => (isScanning ? stopScan() : scanForPeripherals(8000))}
-              activeOpacity={0.85}
-            >
-              <Text style={styles.scanButtonText}>
-                {isScanning ? "Stop Scan" : "Scan for Devices"}
-              </Text>
-            </TouchableOpacity>
+            <View style={styles.modeSelection}>
+              <TouchableOpacity 
+                style={[styles.modeButton, !simulationMode && styles.modeButtonActive]} 
+                onPress={() => {
+                  setSimulationMode(false);
+                  disconnect();
+                  stopScan();
+                  clearDevices();
+                }}
+              >
+                <Text style={[styles.modeButtonText, !simulationMode && styles.modeButtonTextActive]}>
+                  Real Device
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={[styles.modeButton, simulationMode && styles.modeButtonActive]}
+                onPress={() => {
+                  setSimulationMode(true);
+                  disconnect();
+                }}
+              >
+                <Text style={[styles.modeButtonText, simulationMode && styles.modeButtonTextActive]}>
+                  Simulator
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            {!simulationMode && (
+              <TouchableOpacity
+                style={[styles.scanButton, isScanning && { opacity: 0.6 }]}
+                onPress={() => (isScanning ? stopScan() : scanForPeripherals(8000))}
+                activeOpacity={0.85}
+              >
+                <Text style={styles.scanButtonText}>
+                  {isScanning ? "Stop Scan" : "Scan for Devices"}
+                </Text>
+              </TouchableOpacity>
+            )}
 
             {connectedDevice && (
               <View style={styles.connectedBox}>
@@ -125,6 +157,30 @@ const styles = StyleSheet.create({
   scrollContent: { padding: 20 },
   header: { marginBottom: 16 },
   title: { fontSize: 22, fontWeight: "700", color: "#ff2ec4" },
+
+  modeSelection: {
+    flexDirection: 'row',
+    marginBottom: 16,
+    backgroundColor: '#1d1d27',
+    borderRadius: 10,
+    padding: 4,
+  },
+  modeButton: {
+    flex: 1,
+    paddingVertical: 8,
+    alignItems: 'center',
+    borderRadius: 8,
+  },
+  modeButtonActive: {
+    backgroundColor: '#ff2ec4',
+  },
+  modeButtonText: {
+    color: '#7c8394',
+    fontWeight: '600',
+  },
+  modeButtonTextActive: {
+    color: '#ffffff',
+  },
 
   sectionContainer: {
     backgroundColor: "#16161f",

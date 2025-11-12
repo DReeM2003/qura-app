@@ -10,6 +10,8 @@ import { BleManager, Device } from "react-native-ble-plx";
 const NUS_SERVICE = "6e400001-b5a3-f393-e0a9-e50e24dcca9e";
 const NUS_RX_CHAR  = "6e400003-b5a3-f393-e0a9-e50e24dcca9e"; // notify (device → phone)
 const NUS_TX_CHAR  = "6e400002-b5a3-f393-e0a9-e50e24dcca9e"; // write  (phone → device)
+// Debug helper: when true, show all discovered devices in the list (not just NUS/name-matched)
+const DEBUG_SHOW_ALL_DEVICES = false;
 
 export type BleLog = { ts: number; dir: "in" | "out" | "sys"; text: string };
 
@@ -28,6 +30,7 @@ export interface BluetoothLowEnergyApi {
   connectToDevice(d: Device): Promise<Device | null>;
   disconnect(): Promise<void>;
   writeLine(text: string): Promise<void>;
+  clearDevices(): void; // New method to clear device list
 }
 
 export default function useBLE(): BluetoothLowEnergyApi {
@@ -37,7 +40,9 @@ export default function useBLE(): BluetoothLowEnergyApi {
   const [connectedDevice, setConnectedDevice] = useState<Device | null>(null);
   const [lastMessage, setLastMessage] = useState<string | null>(null);
   const [logs, setLogs] = useState<BleLog[]>([]);
+  const [btState, setBtState] = useState<string>("Unknown");
   const unsubRefs = useRef<(() => void)[]>([]);
+  const scanningRef = useRef(false);
 
   const log = useCallback((dir: BleLog["dir"], text: string) => {
     setLogs(prev => [{ ts: Date.now(), dir, text }, ...prev].slice(0, 200));
@@ -65,41 +70,64 @@ export default function useBLE(): BluetoothLowEnergyApi {
   }, []);
 
   const stopScan = useCallback(() => {
-    manager.stopDeviceScan();
+    try {
+      manager.stopDeviceScan();
+    } catch {}
+    scanningRef.current = false;
     setIsScanning(false);
     log("sys", "scan: stopped");
   }, [manager, log]);
 
   const scanForPeripherals = useCallback(
     async (durationMs = 8000) => {
-      const ok = await requestPermissions();
-      if (!ok) {
-        log("sys", "permissions denied");
+      if (scanningRef.current || isScanning) {
+        log("sys", "scan already in progress");
         return;
       }
-      setDevices([]);
-      setIsScanning(true);
-      log("sys", "scan: started");
-      manager.startDeviceScan(null, { allowDuplicates: false }, (error, device) => {
-        if (error) {
-          log("sys", `scan error: ${error.message}`);
-          stopScan();
+      try {
+        const ok = await requestPermissions();
+        if (!ok) {
+          log("sys", "permissions denied or not granted");
           return;
         }
-        if (!device) return;
-
-        const name = (device.name || "").toLowerCase();
-        const hasNus = (device.serviceUUIDs || []).some(u => u?.toLowerCase() === NUS_SERVICE);
-
-        // Keep it simple: match "nina"/"ublox"/"qura" or NUS service
-        if (hasNus || name.includes("nina") || name.includes("ublox") || name.includes("qura")) {
-          addDevice(device);
+        // Ensure Bluetooth is powered on before scanning
+        const current = await manager.state();
+        if (current !== "PoweredOn") {
+          log("sys", `bluetooth not powered on (${current})`);
+          return;
         }
-      });
+        setDevices([]);
+        setIsScanning(true);
+        scanningRef.current = true;
+        log("sys", "scan: started");
+        manager.startDeviceScan(null, { allowDuplicates: false }, (error, device) => {
+          if (error) {
+            log("sys", `scan error: ${error.message}`);
+            stopScan();
+            return;
+          }
+          if (!device) return;
 
-      setTimeout(stopScan, durationMs);
+          const name = (device.name || "").toLowerCase();
+          const hasNus = (device.serviceUUIDs || []).some(u => u?.toLowerCase() === NUS_SERVICE);
+
+          // Log every advertisement to help diagnose discovery issues
+          const suuids = (device.serviceUUIDs || []).join(",");
+          log("sys", `adv: ${device.name || 'Unnamed'} (${device.id}) RSSI=${device.rssi ?? 'n/a'} UUIDs=[${suuids}]`);
+
+          // Keep it simple: match "nina"/"ublox"/"qura" or NUS service
+          if (DEBUG_SHOW_ALL_DEVICES || hasNus || name.includes("nina") || name.includes("ublox") || name.includes("qura")) {
+            addDevice(device);
+          }
+        });
+
+        setTimeout(stopScan, durationMs);
+      } catch (e: any) {
+        log("sys", `scan threw: ${e?.message || e}`);
+        stopScan();
+      }
     },
-    [requestPermissions, manager, stopScan, addDevice, log]
+    [requestPermissions, manager, stopScan, addDevice, log, isScanning]
   );
 
   // ---- Connect / Notifications ----
@@ -114,7 +142,8 @@ export default function useBLE(): BluetoothLowEnergyApi {
     async (device: Device) => {
       try {
         log("sys", `connecting to ${device.name || device.id}…`);
-        const d1 = await manager.connectToDevice(device.id, { autoConnect: true });
+        // Avoid autoConnect to reduce erratic behavior on Android
+        const d1 = await manager.connectToDevice(device.id);
         const d2 = await d1.discoverAllServicesAndCharacteristics();
         setConnectedDevice(d2);
         log("sys", "connected");
@@ -181,12 +210,24 @@ export default function useBLE(): BluetoothLowEnergyApi {
 
   // ---- Cleanup ----
   useEffect(() => {
+    // Track Bluetooth adapter state
+    const sub = manager.onStateChange((state) => {
+      setBtState(state);
+      if (state !== "PoweredOn") {
+        setIsScanning(false);
+      }
+    }, true);
     return () => {
       stopScan();
       clearSubscriptions();
       manager.destroy();
+      try { sub.remove(); } catch {}
     };
   }, [manager, stopScan, clearSubscriptions]);
+
+  const clearDevices = useCallback(() => {
+    setDevices([]);
+  }, []);
 
   return {
     isScanning,
@@ -201,5 +242,6 @@ export default function useBLE(): BluetoothLowEnergyApi {
     connectToDevice,
     disconnect,
     writeLine,
+    clearDevices,
   };
 }

@@ -1,8 +1,10 @@
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import * as React from "react";
-import { Dimensions, FlatList, Image, StyleSheet, Text, View } from "react-native";
+import { Dimensions, FlatList, Image, Pressable, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Svg, { Circle } from "react-native-svg";
+import { useBLEContext } from "../context/BLEContext";
+import { useSensorData } from "../hooks/useSensorData";
 
 const ICON = {
   steps: require("../../assets/icons/steps.png"),
@@ -14,6 +16,7 @@ const ICON = {
 
 export default function Dashboard() {
   const { width } = Dimensions.get("window");
+  const { simulationMode, connectedDevice } = useBLEContext();
 
   const neon = "#ff2ec4";
   const neon2 = "#ff6ef2";
@@ -28,6 +31,15 @@ export default function Dashboard() {
   const contentWidth = width - H * 2; // inner width used for steps + rows
   const topSize = 350;
   const ROW_HEIGHT = 65; // <— adjust this to change container height
+  
+  const { data: sensorData, isConnected, isStale, requestUpdate } = useSensorData();
+  const staleData = isStale();
+
+  // Format sensor values with appropriate units
+  const formatValue = (value: number | null, unit: string) => {
+    if (value === null) return "—";
+    return `${value}${unit}`;
+  };
 
   const StepsRing = ({ steps = 5000, goal = 10000 }) => {
     const size = topSize;
@@ -57,29 +69,50 @@ export default function Dashboard() {
     );
   };
 
-  const data = [
-    { key: "hr",   title: "Heart Rate",       value: "70 bpm",  image: ICON.heart },
-    { key: "temp", title: "Body Temp.",       value: "97.4°F",  image: ICON.temp },
-    { key: "spo2", title: "Blood Oxygen",     value: "96%",     image: ICON.blood_oxygen },
-    { key: "resp", title: "Respiratory Rate", value: "15 br/m", image: ICON.resp_rate },
+  const metrics = [
+    { key: "hr",   title: "Heart Rate",       value: formatValue(sensorData.heartRate, " bpm"),  image: ICON.heart },
+    { key: "spo2", title: "Blood Oxygen",     value: formatValue(sensorData.spo2, "%"),     image: ICON.blood_oxygen },
+    { key: "resp", title: "Respiratory Rate",  value: formatValue(sensorData.respRate, " br/m"), image: ICON.resp_rate },
+    { key: "temp", title: "Body Temp.",       value: formatValue(sensorData.temperature, "°F"),  image: ICON.temp },
   ];
 
   return (
     <View style={styles.screen}>
-      {/* Fixed header */}
-      <Text style={styles.greeting}>Hello, Derek!</Text>
+      {/* Fixed header with connection status */}
+      <View style={styles.header}>
+        <Text style={styles.greeting}>Hello, Derek!</Text>
+        <View style={styles.connectionInfo}>
+          <View style={[styles.statusDot, { 
+            backgroundColor: isConnected ? '#4CAF50' : '#FF9800' 
+          }]} />
+          <Text style={styles.connectionText}>
+            {isConnected ? (
+              simulationMode ? 
+                'Simulator Mode' : 
+                `${(connectedDevice?.name || connectedDevice?.id || '').slice(0, 8)}`
+            ) : 'Disconnected'}
+          </Text>
+          {/* Battery life display */}
+          {sensorData.batteryLife !== null && (
+            <Text style={styles.batteryText}>{`🔋 ${sensorData.batteryLife}%`}</Text>
+          )}
+          <Pressable onPress={requestUpdate} style={styles.refreshButton}>
+            <Text style={styles.refreshButtonText}>↻</Text>
+          </Pressable>
+        </View>
+      </View>
 
       {/* Fixed steps square */}
       <View style={{ paddingHorizontal: H }}>
         <View style={[styles.topCard, { width: topSize, height: topSize }]}>
-          <StepsRing steps={7123} goal={10000} />
+          <StepsRing steps={sensorData.steps || 0} goal={10000} />
         </View>
         <View style={[styles.divider, { width: topSize }]} />
       </View>
 
       {/* Scrollable metrics (1 x N) */}
       <FlatList
-        data={data}
+        data={metrics}
         keyExtractor={(item) => item.key}
         contentContainerStyle={{
           paddingHorizontal: H,
@@ -106,7 +139,20 @@ export default function Dashboard() {
 }
 
 const styles = StyleSheet.create({
+  batteryText: {
+    fontSize: 14,
+    color: '#ff2ec4',
+    marginRight: 10,
+    fontWeight: 'bold',
+  },
   screen: { flex: 1, backgroundColor: "#06060f" },
+
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingRight: 16,
+  },
 
   greeting: {
     fontSize: 24,
@@ -115,6 +161,39 @@ const styles = StyleSheet.create({
     marginTop: 10,
     marginBottom: 8,
     marginLeft: 16,
+  },
+
+  connectionInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+
+  statusDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    marginRight: 6,
+  },
+
+  connectionText: {
+    fontSize: 14,
+    color: '#aaa',
+    marginRight: 10,
+  },
+
+  refreshButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#16161f',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  refreshButtonText: {
+    fontSize: 20,
+    color: '#ff2ec4',
+    fontWeight: '600',
   },
 
   topCard: {

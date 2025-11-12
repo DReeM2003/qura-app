@@ -2,13 +2,13 @@
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import React, { useMemo, useState } from "react";
 import {
-    Dimensions,
-    FlatList,
-    Image,
-    Pressable,
-    StyleSheet,
-    Text,
-    View,
+  Dimensions,
+  FlatList,
+  Image,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -21,14 +21,24 @@ const ICON = {
 };
 
 const MONTHS = [
-  "January","February","March","April","May","June",
-  "July","August","September","October","November","December"
+  "January",
+  "February",
+  "March",
+  "April",
+  "May",
+  "June",
+  "July",
+  "August",
+  "September",
+  "October",
+  "November",
+  "December",
 ];
-const WEEKDAYS = ["S","M","T","W","T","F","S"];
+const WEEKDAYS = ["S", "M", "T", "W", "T", "F", "S"];
 
 export default function records() {
   const { width, height } = Dimensions.get("window");
-  const H = 16;                 // horizontal page padding
+  const H = 16;
   const tabBarHeight = useBottomTabBarHeight();
   const { bottom } = useSafeAreaInsets();
   const bottomClearance = tabBarHeight + bottom + 25;
@@ -36,64 +46,104 @@ export default function records() {
   // --- Calendar state
   const today = new Date();
   const [viewYear, setViewYear] = useState(today.getFullYear());
-  const [viewMonth, setViewMonth] = useState(today.getMonth()); // 0-11
+  const [viewMonth, setViewMonth] = useState(today.getMonth());
   const [selected, setSelected] = useState<Date | null>(today);
 
-  // compute grid cells (42 cells = 6 weeks)
+  // compute grid cells (only current month days)
   const daysGrid = useMemo(() => {
     const first = new Date(viewYear, viewMonth, 1);
-    const startWeekday = first.getDay(); // 0 (Sun) - 6 (Sat)
+    const startWeekday = first.getDay();
     const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
-    const daysPrevMonth = new Date(viewYear, viewMonth, 0).getDate();
 
     const cells: { key: string; date: Date; inMonth: boolean }[] = [];
-    // leading days from prev month
-    for (let i = startWeekday - 1; i >= 0; i--) {
-      const d = new Date(viewYear, viewMonth - 1, daysPrevMonth - i);
-      cells.push({ key: `p-${d.toDateString()}`, date: d, inMonth: false });
+    
+    // Add empty cells for days before the month starts
+    for (let i = 0; i < startWeekday; i++) {
+      cells.push({ 
+        key: `empty-${i}`, 
+        date: new Date(0), 
+        inMonth: false 
+      });
     }
-    // current month
+    
+    // Add current month days
     for (let d = 1; d <= daysInMonth; d++) {
       const dt = new Date(viewYear, viewMonth, d);
       cells.push({ key: `c-${dt.toDateString()}`, date: dt, inMonth: true });
     }
-    // trailing days from next month to fill 42
-    while (cells.length < 42) {
-      const last = cells[cells.length - 1].date;
-      const next = new Date(last);
-      next.setDate(last.getDate() + 1);
-      cells.push({ key: `n-${next.toDateString()}`, date: next, inMonth: false });
-    }
+    
     return cells;
   }, [viewYear, viewMonth]);
 
   const goPrevMonth = () => {
-    if (viewMonth === 0) { setViewMonth(11); setViewYear(y => y - 1); }
-    else setViewMonth(m => m - 1);
+    if (viewMonth === 0) {
+      setViewMonth(11);
+      setViewYear((y) => y - 1);
+    } else setViewMonth((m) => m - 1);
   };
+  
   const goNextMonth = () => {
-    if (viewMonth === 11) { setViewMonth(0); setViewYear(y => y + 1); }
-    else setViewMonth(m => m + 1);
+    if (viewMonth === 11) {
+      setViewMonth(0);
+      setViewYear((y) => y + 1);
+    } else setViewMonth((m) => m + 1);
   };
 
-  // --- records data (replace with your live data)
-  const records = [
-    { key: "steps", label: "Steps", value: "8,540", icon: ICON.steps },
-    { key: "hr",    label: "Heart Rate", value: "72 bpm", icon: ICON.heart },
-    { key: "resp",  label: "Respiratory Rate", value: "15 br/m", icon: ICON.resp },
-    { key: "spo2",  label: "Blood Oxygen", value: "97%", icon: ICON.spo2 },
-    { key: "temp",  label: "Body Temp.", value: "97.6°F", icon: ICON.temp },
-  ];
+  // --- Dynamic daily records
+  const generateDailyMetrics = (date: Date) => {
+    const seed = date.getDate();
+    return [
+      {
+        key: "steps",
+        label: "Steps",
+        value: `${7500 + seed * 100} steps`,
+        icon: ICON.steps,
+      },
+      {
+        key: "hr",
+        label: "Heart Rate",
+        value: `${65 + (seed % 10)} bpm`,
+        icon: ICON.heart,
+      },
+      {
+        key: "resp",
+        label: "Respiratory Rate",
+        value: `${14 + (seed % 5)} br/m`,
+        icon: ICON.resp,
+      },
+      {
+        key: "spo2",
+        label: "Blood Oxygen",
+        value: `${96 + (seed % 3)}%`,
+        icon: ICON.spo2,
+      },
+      {
+        key: "temp",
+        label: "Body Temp.",
+        value: `${97 + (seed % 2)}.${seed % 9}°F`,
+        icon: ICON.temp,
+      },
+    ];
+  };
 
-  // layout sizes
-  const calendarHeight = Math.max(280, Math.floor(height * 0.45)); // “top half”
+  const records = useMemo(
+    () => generateDailyMetrics(selected || today),
+    [selected]
+  );
+
+  const calendarHeight = Math.max(280, Math.floor(height * 0.45));
   const contentWidth = width - H * 2;
   const ROW_HEIGHT = 84;
 
   return (
     <View style={styles.screen}>
       {/* Top: Calendar */}
-      <View style={[styles.calendarWrap, { height: calendarHeight, paddingHorizontal: H }]}>
+      <View
+        style={[
+          styles.calendarWrap,
+          { height: calendarHeight, paddingHorizontal: H },
+        ]}
+      >
         {/* Header with month/year and chevrons */}
         <View style={styles.calHeader}>
           <Pressable onPress={goPrevMonth} hitSlop={10}>
@@ -109,12 +159,14 @@ export default function records() {
 
         {/* Weekday labels */}
         <View style={styles.weekHeader}>
-          {WEEKDAYS.map(d => (
-            <Text key={d} style={styles.weekLabel}>{d}</Text>
+          {WEEKDAYS.map((d) => (
+            <Text key={d} style={styles.weekLabel}>
+              {d}
+            </Text>
           ))}
         </View>
 
-        {/* 6×7 grid */}
+        {/* 6×7 grid with circular indicators */}
         <View style={styles.daysGrid}>
           {daysGrid.map(({ key, date, inMonth }) => {
             const isSelected =
@@ -126,18 +178,25 @@ export default function records() {
             return (
               <Pressable
                 key={key}
-                style={[styles.dayCell, isSelected && styles.dayCellSelected]}
+                style={styles.dayCell}
                 onPress={() => setSelected(date)}
               >
-                <Text
+                <View
                   style={[
-                    styles.dayText,
-                    !inMonth && styles.dayOut,
-                    isSelected && styles.dayTextSelected,
+                    styles.dayCircle,
+                    isSelected && styles.dayCircleSelected,
                   ]}
                 >
-                  {date.getDate()}
-                </Text>
+                  <Text
+                    style={[
+                      styles.dayText,
+                      !inMonth && styles.dayOut,
+                      isSelected && styles.dayTextSelected,
+                    ]}
+                  >
+                    {date.getDate()}
+                  </Text>
+                </View>
               </Pressable>
             );
           })}
@@ -150,11 +209,17 @@ export default function records() {
         keyExtractor={(item) => item.key}
         contentContainerStyle={{
           paddingHorizontal: H,
+          paddingTop: 16,
           paddingBottom: bottomClearance,
           rowGap: 12,
         }}
         renderItem={({ item }) => (
-          <View style={[styles.rowCard, { width: contentWidth, height: ROW_HEIGHT }]}>
+          <View
+            style={[
+              styles.rowCard,
+              { width: contentWidth, height: ROW_HEIGHT },
+            ]}
+          >
             <View style={styles.rowLeft}>
               <Image source={item.icon} style={styles.rowIcon} />
               <Text style={styles.recordTitle}>{item.label}</Text>
@@ -192,7 +257,11 @@ const styles = StyleSheet.create({
     marginBottom: 6,
     paddingHorizontal: 6,
   },
-  weekLabel: { color: "#9aa0a6", width: `${100 / 7}%`, textAlign: "center" },
+  weekLabel: { 
+    color: "#9aa0a6", 
+    width: `${100 / 7}%`, 
+    textAlign: "center" 
+  },
 
   daysGrid: {
     flexDirection: "row",
@@ -205,16 +274,28 @@ const styles = StyleSheet.create({
     aspectRatio: 1,
     alignItems: "center",
     justifyContent: "center",
-    borderRadius: 12,
   },
-  dayCellSelected: {
-    backgroundColor: "#171726",
-    borderWidth: 1,
-    borderColor: "#ff2ec4",
+  dayCircle: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: "center",
+    justifyContent: "center",
   },
-  dayText: { color: "#e4e6eb", fontSize: 15 },
-  dayOut: { color: "#637087" },
-  dayTextSelected: { color: "#fff", fontWeight: "700" },
+  dayCircleSelected: {
+    backgroundColor: "#ff2ec4",
+  },
+  dayText: { 
+    color: "#e4e6eb", 
+    fontSize: 15 
+  },
+  dayOut: { 
+    color: "#637087" 
+  },
+  dayTextSelected: { 
+    color: "#fff", 
+    fontWeight: "700" 
+  },
 
   // Rows
   rowCard: {

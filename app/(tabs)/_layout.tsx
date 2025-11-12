@@ -108,7 +108,7 @@ export default function Layout() {
 
         tabBarStyle: {
           position: "absolute",
-          bottom: 20, // spacing from screen edge
+          bottom: 60, // spacing from screen edge
           marginHorizontal: 16,
           backgroundColor: "#16161fff", // container color
           borderRadius: 28,
